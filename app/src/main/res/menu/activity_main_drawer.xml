@@ -4,7 +4,7 @@
     <group android:id="@+id/grp2" android:checkableBehavior="single" >
         <item
             android:id="@+id/WindChill"
-            android:title="Wind Chill" />
+            android:title="Wind Chill Calculator" />
     </group>
 
     <item

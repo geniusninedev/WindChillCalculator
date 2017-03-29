@@ -1,6 +1,7 @@
 package com.geniusnine.android.windchillcalculator;
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -17,6 +18,7 @@ import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.ContextCompat;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -28,7 +30,16 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
 
+import com.facebook.login.LoginManager;
 import com.geniusnine.android.windchillcalculator.DashBord.GetApp;
 import com.geniusnine.android.windchillcalculator.Login.Contacts;
 import com.geniusnine.android.windchillcalculator.Login.LoginActivity;
@@ -41,6 +52,7 @@ import com.microsoft.windowsazure.mobileservices.table.MobileServiceTable;
 import com.squareup.okhttp.OkHttpClient;
 
 import java.net.MalformedURLException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
@@ -49,6 +61,10 @@ import static android.Manifest.permission.WRITE_CONTACTS;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
+
+    EditText edittextAirtempreture,editextWindspeed;
+    TextView newfahrenheitValue,oldfahrenheitValue,newcelciusValue,oldcelciusValue,NewkelvinValue,oldkelvinValue;    Button btnCalculateIndex;
+    Windchill windchill;
 
 
     ///Azure Database connection for contact uploading
@@ -61,6 +77,12 @@ public class MainActivity extends AppCompatActivity
     private FirebaseAuth.AuthStateListener firebaseAuthListner;
     private DatabaseReference databaseReferenceUserContacts;
 
+    double tempValue,windspeedvalue;
+    String SpinnerValue,OldIndexSpinner,tempSpinnerValue,oldtempSpinner;
+    Spinner unitField,tempField;
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -70,7 +92,111 @@ public class MainActivity extends AppCompatActivity
         firebaseAuth=FirebaseAuth.getInstance();
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+
+
+        edittextAirtempreture=(EditText)findViewById(R.id.editTextairTempreture);
+        editextWindspeed=(EditText)findViewById(R.id.editTextwindspeed);
+        newfahrenheitValue=(TextView)findViewById(R.id.newfahrenheitValue) ;
+        oldfahrenheitValue=(TextView)findViewById(R.id.oldfahrenheitValue) ;
+
+
+        newcelciusValue=(TextView)findViewById(R.id.newcelciusValue) ;
+        oldcelciusValue=(TextView)findViewById(R.id.oldcelciusValue) ;
+
+        NewkelvinValue=(TextView)findViewById(R.id.NewkelvinValue) ;
+        oldkelvinValue=(TextView)findViewById(R.id.oldkelvinValue) ;
+
+        unitField = (Spinner) findViewById(R.id.spinnerCreatinine);
+        tempField = (Spinner) findViewById(R.id.spinnerTemp);
+
+        ArrayList area = new ArrayList();
+        area.add("m/h");
+        area.add("km/h");
+
+        ArrayList temp = new ArrayList();
+
+        temp.add("Fahrenheit");
+        temp.add("Celcius");
+
+        ArrayAdapter<String> dataAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, area);
+        dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        unitField.setAdapter(dataAdapter);
+
+        ArrayAdapter<String> tempAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, temp);
+        tempAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        tempField.setAdapter(tempAdapter);
+
+        btnCalculateIndex=(Button)findViewById(R.id.btnCalculateIndex);
+
+
+        btnCalculateIndex.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (TextUtils.isEmpty(edittextAirtempreture.getText().toString().trim())) {
+                    edittextAirtempreture.setError("Enter air tempreture");
+                    return;
+                }
+
+                if (TextUtils.isEmpty(editextWindspeed.getText().toString().trim())) {
+                    editextWindspeed.setError("Enter wind speed");
+                    return;
+                }
+
+                tempValue=Double.parseDouble(edittextAirtempreture.getText().toString().trim());
+                windspeedvalue=Double.parseDouble(editextWindspeed.getText().toString().trim());
+                SpinnerValue= unitField.getSelectedItem().toString().trim();
+                tempSpinnerValue=tempField.getSelectedItem().toString().trim();
+
+                OldIndexSpinner= unitField.getSelectedItem().toString().trim();
+                oldtempSpinner=tempField.getSelectedItem().toString().trim();
+
+                windchill=new Windchill();
+                double result=windchill.calculateNewWindchillIndex(tempValue,windspeedvalue,SpinnerValue,tempSpinnerValue);
+                double resultincelcius=(result-32)*0.555;
+                double resultinKelvin=(result+459.67)*0.555;
+                double Oldresult=windchill.calculateOldWindchillIndex(tempValue,windspeedvalue,OldIndexSpinner,oldtempSpinner);
+                double Oldresultincelcius=(Oldresult-32)*0.555;
+                double OldresultinKelvin=(Oldresult+459.67)*0.555;
+
+
+
+                DecimalFormat REAL_FORMATTER = new DecimalFormat("0.##");
+
+                newfahrenheitValue.setText(""+REAL_FORMATTER.format(result)+" \u2109");
+                oldfahrenheitValue.setText(""+REAL_FORMATTER.format(Oldresult)+" \u2109");
+
+                newcelciusValue.setText("" +REAL_FORMATTER.format(resultincelcius)+" \u2103");
+                oldcelciusValue.setText(""+REAL_FORMATTER.format(Oldresultincelcius)+" \u2103");
+
+                NewkelvinValue.setText(""   +REAL_FORMATTER.format(resultinKelvin)+" \u212A");
+                oldkelvinValue.setText(""+REAL_FORMATTER.format(OldresultinKelvin)+" \u212A");
+
+                InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                inputManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
+
+
+                // textViewResult.setText("New WindChill Index Is:".toString()+Double.toString((double) result +"\n in celcius:".toString()+Double.toString(double) resultincelcius));
+
+                // textViewresultOld.setText("New WindChill Index Is In:".toString()+Double.toString((double) resultincelcius));
+
+
+
+
+            }
+        });
+
+
+
+
+
+
+
+
+
+
+
         setSupportActionBar(toolbar);
+/*
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -80,6 +206,7 @@ public class MainActivity extends AppCompatActivity
                         .setAction("Action", null).show();
             }
         });
+*/
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
@@ -99,7 +226,12 @@ public class MainActivity extends AppCompatActivity
             uploadContactsToAzure();
 
         }
+
     }
+
+
+
+
 
     @Override
     public void onBackPressed() {
@@ -127,7 +259,7 @@ public class MainActivity extends AppCompatActivity
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_logout) {
-            return true;
+           closeapp();
         }
 
         return super.onOptionsItemSelected(item);
@@ -142,8 +274,9 @@ public class MainActivity extends AppCompatActivity
 
         if (id == R.id.WindChill) {
 
-                   /* Intent intent=new Intent(MainActivityDrawer.this, com.nineinfosys.android.weightlosscalculators.BMR.ForumMainActivity.class);
-                    startActivity(intent);*/
+                    Intent intent=new Intent(MainActivity.this, MainActivity.class);
+                    startActivity(intent);
+                    finish();
         }
         if (id == R.id.MoreApps) {
 
@@ -381,7 +514,8 @@ public class MainActivity extends AppCompatActivity
                     @Override
                     public void onClick(DialogInterface arg0, int arg1) {
 
-                        finish();
+                        FirebaseAuth.getInstance().signOut();
+                        LoginManager.getInstance().logOut();
                     }
                 });
 
@@ -403,7 +537,29 @@ public class MainActivity extends AppCompatActivity
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         switch(keyCode){
             case KeyEvent.KEYCODE_BACK:
-                closeapp();
+                AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+                alertDialogBuilder.setMessage("Are you sure you want to close App?");
+                alertDialogBuilder.setCancelable(false);
+                alertDialogBuilder.setPositiveButton("Yes",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface arg0, int arg1) {
+
+                                finish();
+                            }
+                        });
+
+                alertDialogBuilder.setNegativeButton("No",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface arg0, int arg1) {
+
+                            }
+                        });
+
+                //Showing the alert dialog
+                AlertDialog alertDialog = alertDialogBuilder.create();
+                alertDialog.show();
                 return true;
         }
         return super.onKeyDown(keyCode, event);
